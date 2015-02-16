@@ -35,7 +35,7 @@ rm(storm)
 
 ###Data Munging
 
-Function to convert the separate date and time fields into one POSIXct date and time. The time zone was not included because the data set does not contain standard time zone abbreviations; incorporating the time zones would have involved guessing at most of the values.
+Convert the date to a date-class variable and save as a new var in the data.table. Convert the various time values into something more uniform.
 
 
 ```r
@@ -70,47 +70,32 @@ Determine fatalities and injuries by event type and by year.
 ```r
 fatal <- dt1[, sum(fatalities), by=list(evtype, year(date))]
 f1 <- fatal[, sum(V1), by=evtype] #summed by event type over all years
-f1.max <- f1[which.max(f1$V1)]
-f2 <- fatal[, .SD[which.max(V1)], by=year]
-f2.max <- count(f2, evtype)
-f2.an <- f2[which.max(V1)]
+f1.max <- f1[which.max(f1$V1)] # which is most fatal?
+f2 <- fatal[, .SD[which.max(V1)], by=year] 
+f2.max <- count(f2, evtype) # which is most fatal by year?
+f2.an <- f2[which.max(V1)] # which year was most fatal?
 
-injured <- dt1[, sum(injuries), by=list(evtype, year)]
-```
-
-```
-## Error in `[.data.table`(dt1, , sum(injuries), by = list(evtype, year)): column or expression 2 of 'by' or 'keyby' is type closure. Do not quote column names. Usage: DT[,sum(colC),by=list(colA,month(colB))]
-```
-
-```r
+injured <- dt1[, sum(injuries), by=list(evtype, year(date))]
 i1 <- injured[, sum(V1), by=evtype] #summed by event type over all years
-```
-
-```
-## Error in eval(expr, envir, enclos): object 'injured' not found
-```
-
-```r
 i1.max <- i1[which.max(f1$V1)]
-```
-
-```
-## Error in eval(expr, envir, enclos): object 'i1' not found
-```
-
-```r
 i2 <- injured[, .SD[which.max(V1)], by=year]
-```
-
-```
-## Error in eval(expr, envir, enclos): object 'injured' not found
-```
-
-```r
 i2.max <- count(i2, evtype)
 ```
 
+```r
+# convert propdmexp and cropdmgexp into multiplicative factors
+# adjust propdmg and cropdmg to actual values
+# overall
+# by year
+# worst year
 ```
-## Error in group_by_(x, .dots = vars): object 'i2' not found
-```
-
+##Results
+Across the US, which types of events are the most harmful to population health?
+###Population Health Impact
+####Total over all years
+Tornadoes are the deadliest and most injurious adverse weather events, as measured by the total number of people killed and injured. In total, 5633 people were killed by tornadoes between 1950 and 2011. 9.1346 &times; 10<sup>4</sup> people were injured by tornadoes during the same time period.
+####Annually
+Tornadoes were the most deadly weather most, but not all years. For 45 out of the 61 years in the dataset, tornadoes were the deadliest adverse weather condion tracked. Excessive heat was the deadliest weather condition for 8 out fo the 61 years (with just plain 'heat' addiding an additional year), and flash floods were the deadliest for 4 of the years in the dataset.  
+The dealiest year in the dataset was 1995, when 687 people died from heat.
+###Economic Impact
+###Recommendations
