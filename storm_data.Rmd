@@ -3,39 +3,42 @@ output:
   html_document:
     keep_md: yes
 ---
-# NOAA Storm Data
+<center># NOAA Storm Data</center>
 ## JHU-DS Reproducible Research Peer Assesment 2  
 This is the second peer assessment required for the JHU Reproducible Research course through Coursera. The project examines data from the National Oceanic and Atmospheric Administrations' severe weather database in order to answer basic questions about storm events. This project uses R throughout.
 
-##Data Processing
+<center>##Data Processing</center>
 ###Dataset
 The data come from the NOAA National Climatic Data Center Storm Events database, and cover years 1950 to 2011.  
 ###Prep the workspace
 Load required libraries:
 ```{r loadLibs}
+wd <- "C:/Users/Kitt/Documents/GitHub/noaastormdata"
+if(getwd()!=wd) setwd(wd)
 library(data.table)
 library(R.utils)
 library(ggplot2)
+library(gridExtra)
 library(dplyr)
 ```
 
 ###Download the data
 Then dowload the data, and load the data into memory:
-```{r loadData, cache=TRUE}
+```{r loadData}
 url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 fn <- "stormdata.csv"
 if(!file.exists(fn)) download.file(url, fn, mode="wb")
 if(!file.exists(fn)) bunzip2("stormdata.bz2", fn, remove=FALSE)
 storm <- read.csv(fn)
-dt <- data.table(storm)
+dt1 <- data.table(storm)
 rm(storm)
 ```
 
-###Data Munging
+###Data Cleaning
 
-Convert the date to a date-class variable and save as a new var in the data.table. Convert the various time values into something more uniform.
+Function to convert the separate date and time fields into one POSIXct date and time. The time zone was not included because the data set does not contain standard time zone abbreviations; incorporating the time zones would have involved guessing at most of the values.
 
-```{r toDTG, cache=TRUE}
+```{r toDTG}
 # unifTime converts all the weird time entries into a uniform time format
 unifTime <- function(char.time){
     if(nchar(char.time) > 4){
@@ -51,27 +54,26 @@ unifTime <- function(char.time){
 
 ```
 
-```{r munging, results='hide', warning=FALSE}
-setnames(dt1, tolower(names(dt1)))
+```{r cleaning, results='hide', warning=FALSE}
+setnames(dt, tolower(names(dt)))
 to.keep <- c("state", "evtype", "bgn_date", "bgn_time", "mag", "fatalities", "injuries", "propdmg", "propdmgexp", "cropdmg", "cropdmgexp")
-dt1 <- dt[, to.keep, with=FALSE] #new table with only selected columns
+dt1 <- dt1[, to.keep, with=FALSE] #new table with only selected columns
 
 dt1[, bgn_date:=as.character(bgn_date)]
 dt1[, bgn_time:=as.character(bgn_time)]
 dt1[, date:=as.Date(bgn_date, format="%m/%d/%Y")]
 dt1[, time:=unifTime(bgn_time), by=1:nrow(dt1)]
 ```
-
 ##Data Analysis
 Determine fatalities and injuries by event type and by year.
 ```{r healthImpact, results='hide'}
 fatal <- dt1[, sum(fatalities), by=list(evtype, year(date))]
 f1 <- fatal[, sum(V1), by=evtype] #summed by event type over all years
 f1.max <- f1[which.max(f1$V1)] # which is most fatal?
-f2 <- fatal[, .SD[which.max(V1)], by=year] 
+f2 <- fatal[, .SD[which.max(V1)], by=year]
 f2.max <- count(f2, evtype) # which is most fatal by year?
 f2.an <- f2[which.max(V1)] # which year was most fatal?
-
+f3 <- dt1[, sum(fatalities), by=year(date)]
 injured <- dt1[, sum(injuries), by=list(evtype, year(date))]
 i1 <- injured[, sum(V1), by=evtype] #summed by event type over all years
 i1.max <- i1[which.max(f1$V1)]
@@ -79,21 +81,49 @@ i2 <- injured[, .SD[which.max(V1)], by=year]
 i2.max <- count(i2, evtype)
 
 ```
+```{r healthgraph}
+# reorder event types by deaths
+f1$evtype <- factor(f1$evtype, levels = f1$evtype[order(-f1$V1)])
+f2$evtype <- factor(f2$evtype, levels = f2$evtype[order(-f2$V1)])
+# create the plots
+g.f1 <- ggplot(f1[order(-f1$V1)][1:10], aes(x=evtype, y=V1))
+g.f1 <- g.f1 + geom_bar(stat="identity", aes(fill=evtype)) +
+    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1)) +
+    xlab("event type") + ylab("deaths") +
+    scale_fill_brewer(palette="Paired") + guides(fill=FALSE) + 
+    ggtitle("Total deaths by event type, 1950-2011")
+g.f2 <- ggplot(f2, aes(x=year, y=V1))
+g.f2 <- g.f2 + geom_bar(stat="identity", aes(fill=f2$evtype)) +
+    scale_fill_brewer(palette="Set1") + ylab("deaths") + xlab("year") +
+    ggtitle("deadliest event type by year") +
+    guides(fill=guide_legend(title=NULL))
+g.f3 <- g.f2 + geom_bar(stat="identity", aes(fill=f2$evtype)) +
+    scale_fill_brewer(palette="Set1") + ylab("deaths") + xlab("year") +
+    ggtitle("deadliest event type by year") +
+    guides(fill=guide_legend(title=NULL)) +
+    geom_line(data=f3, aes(x=year, y=V1))
+# plot the plot
+g.f1
+g.f2
+```
 ```{r econImpact, results='hide'}
 # convert propdmexp and cropdmgexp into multiplicative factors
+
 # adjust propdmg and cropdmg to actual values
 # overall
 # by year
 # worst year
 
 ```
-##Results
+<center>##Results</center>
 Across the US, which types of events are the most harmful to population health?
-###Population Health Impact
-####Total over all years
-Tornadoes are the deadliest and most injurious adverse weather events, as measured by the total number of people killed and injured. In total, `r f1.max$V1` people were killed by tornadoes between 1950 and 2011. `r i1.max$V1` people were injured by tornadoes during the same time period.
-####Annually
-Tornadoes were the most deadly weather most, but not all years. For 45 out of the 61 years in the dataset, tornadoes were the deadliest adverse weather condion tracked. Excessive heat was the deadliest weather condition for 8 out fo the 61 years (with just plain 'heat' addiding an additional year), and flash floods were the deadliest for 4 of the years in the dataset.  
-The dealiest year in the dataset was `r f2.an$year`, when `r f2.an$V1` people died from `r tolower(f2.an$evtype)`.
+###Population Health Impact  
+Tornadoes are the deadliest and most injurious adverse weather events, as measured by the total number of people killed and injured. In total, `r f1.max$V1` people were killed by tornadoes between 1950 and 2011. `r i1.max$V1` people were injured by tornadoes during the same time period.  
+
+The deadliest event in a year has changed over time. From 1950 until about 1992, tornadoes were the deadliest type of adverse weather event. However, excessive heat (and heat) were the deadliest events in the 1990s and early 2000.    
+The dealiest year in the dataset was `r f2.an$year`, when `r f2.an$V1` people died from `r tolower(f2.an$evtype)`.  
+
 ###Economic Impact
+
+
 ###Recommendations

@@ -1,0 +1,8 @@
+base
+data.table
+R.methodsS3
+R.oo
+R.utils
+ggplot2
+dplyr
+knitr
